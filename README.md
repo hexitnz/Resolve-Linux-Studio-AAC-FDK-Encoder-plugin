@@ -39,7 +39,7 @@ A high-quality AAC audio encoder plugin for DaVinci Resolve Studio on Linux, usi
 ```bash
 # 1. Clone the repository
 git clone https://github.com/hexitnz/Resolve-Linux-Studio-AAC-FDK-Encoder-plugin.git
-cd davinci-aac-fdk-plugin
+cd Resolve-Linux-Studio-AAC-FDK-Encoder-plugin
 
 # 2. Run the automated installer
 chmod +x install.sh
