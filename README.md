@@ -2,6 +2,7 @@
 
 A high-quality AAC audio encoder plugin for DaVinci Resolve Studio on Linux, using the Fraunhofer FDK-AAC library.
 Thanks go to toxblh for the the original concept which inspired this project and also to the team at Claude who assisted in making this plugin possible.
+I am relatively new to creating plugins and other filter and VST plugins for Davinci Reoslve Studio Linus but home to create more.  Please let me know how you get on and any suggestions for the future.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
