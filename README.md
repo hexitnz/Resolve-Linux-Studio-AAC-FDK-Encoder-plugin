@@ -1,6 +1,7 @@
 # AAC Audio Encoder Plugin for DaVinci Resolve Studio (Linux)
 
 A high-quality AAC audio encoder plugin for DaVinci Resolve Studio on Linux, using the Fraunhofer FDK-AAC library.
+Thanks go to toxblh for the the original concept which inspired this project and also to the team at Claude who assisted in making this plugin possible.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
