@@ -330,8 +330,8 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/davinci-aac-fdk-plugin/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/davinci-aac-fdk-plugin/discussions)
+- **Issues**: [GitHub Issues](https://github.com/hexitnz/davinci-aac-fdk-plugin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/hexitnz/davinci-aac-fdk-plugin/discussions)
 
 ## Changelog
 
