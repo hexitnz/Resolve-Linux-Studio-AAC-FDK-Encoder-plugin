@@ -1,10 +1,9 @@
 # AAC Audio Encoder Plugin for DaVinci Resolve Studio (Linux)
 
 A high-quality AAC audio encoder plugin for DaVinci Resolve Studio on Linux, using the Fraunhofer FDK-AAC library.
-Thanks to toxblh for the the original concept.
-Check my other forthcoming repositories for Resolve linux VST and effects.
+Thanks to 'toxblh' for the the original concept.
 
-Please don't ask for aac or other input plugins. BlackMagic have disabled the option of making input plugins for commercial and licensing reasons and I respect their decision to do that. If your looking for a quick way to import mp4 with aac I recomend a small script I created which adds a right click in file explorer nemo which does a quick transcode of the aac to FLAC and remuxes with the passthrough avc video, it is the only option at this point. I will put that in another repo.
+Please don't ask for AAC or other input plugins. BlackMagic have disabled the option of making input plugins for commercial and licensing reasons and I respect their decision to do that. If you are looking for a quick way to import mp4 with AAC I recommend a small script I created which adds a right click in file explorer Nemo which does a quick transcode of the AAC to FLAC and remuxes with the pass-through AVC video, it is the only option at this point. I will put that in another repo.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
