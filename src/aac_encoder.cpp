@@ -1,6 +1,7 @@
 #include "aac_encoder.h"
 #include <cstring>
 #include <cstdlib>
+#include <cctype>
 #include <algorithm>
 #include <string>
 
@@ -150,7 +151,18 @@ StatusCode AACEncoder::s_RegisterCodecs(HostListRef* p_pList)
     uint32_t channelLayout = audLayoutStereo;
     codecInfo.SetProperty(pIOPropAudioChannelLayout, propTypeUInt32, &channelLayout, 1);
 
-    std::vector<std::string> containerVec{"mp4", "mov", "mkv"};
+    // NOTE: "mkv" intentionally excluded. Resolve's Matroska muxer writes
+    // a zero-duration audio track (Duration tag = 00:00:00) even though
+    // this plugin sends correct, verified per-frame PTS/Duration values
+    // (identical to what's proven correct for MP4/MOV) and a correct
+    // pIOPropTimeBase. The resulting MKV file's audio data is valid AAC,
+    // but many players treat a zero-duration track as empty and produce
+    // no audio. The SDK has no exposed property for an explicit
+    // total/track-duration hint, so there's no lever available to this
+    // codec plugin to correct Resolve's MKV muxer behavior. See README
+    // Known Limitations / Troubleshooting for details. Re-add "mkv" here
+    // if a future Resolve version fixes this on the muxer side.
+    std::vector<std::string> containerVec{"mp4", "mov"};
     std::string valStrings;
     for (size_t i = 0; i < containerVec.size(); ++i)
     {
@@ -200,6 +212,47 @@ AACEncoder::~AACEncoder()
 
 StatusCode AACEncoder::DoInit(HostPropertyCollectionRef* p_pProps)
 {
+    // --- CONTAINER GUARD ---
+    // Declaring pIOPropContainerList without "mkv" at registration time
+    // (see s_RegisterCodecs) does NOT actually stop Resolve's deliver page
+    // from offering or allowing MKV + this codec together -- confirmed by
+    // direct testing, the export proceeds and produces a file regardless.
+    // Resolve's Matroska muxer writes a zero-duration audio track for this
+    // codec's output (see CHANGELOG v1.1.2), causing silent audio in many
+    // players, so we reject the export outright here rather than let it
+    // silently produce a broken file. pIOPropContainerExt gives us the
+    // actual target container extension for this specific export.
+    PropertyType containerExtType;
+    const void* containerExtValue = nullptr;
+    int containerExtCount = 0;
+    if (p_pProps->GetProperty(pIOPropContainerExt, &containerExtType, &containerExtValue, &containerExtCount) == errNone
+        && containerExtValue != nullptr && containerExtCount > 0)
+    {
+        std::string containerExt(static_cast<const char*>(containerExtValue), containerExtCount);
+        // Lowercase compare; observed values are like "mp4", "mov", "mkv".
+        std::string containerExtLower = containerExt;
+        std::transform(containerExtLower.begin(), containerExtLower.end(), containerExtLower.begin(), ::tolower);
+
+        if (containerExtLower.find("mkv") != std::string::npos)
+        {
+            g_Log(logLevelError,
+                  "AAC Plugin :: Rejecting MKV export (container='%s') -- Resolve's Matroska muxer "
+                  "writes a zero-duration audio track for this codec, causing silent playback in many "
+                  "players. Use MP4 or MOV instead. See README Known Limitations / Troubleshooting.",
+                  containerExt.c_str());
+            return errFail;
+        }
+    }
+    else
+    {
+        // pIOPropContainerExt wasn't populated for this call -- not
+        // necessarily an error (some hosts/lifecycle stages may not set
+        // it), but log it so this is visible if MKV exports are ever
+        // reported as still succeeding despite this guard.
+        g_Log(logLevelWarn,
+              "AAC Plugin :: pIOPropContainerExt not available at DoInit -- cannot verify export container");
+    }
+
     p_pProps->GetUINT32(pIOPropBitDepth, m_outputBitDepth);
     p_pProps->GetUINT32(pIOPropSamplingRate, m_SampleRate);
     p_pProps->GetUINT32(pIOPropNumChannels, m_NumChannels);

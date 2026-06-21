@@ -10,7 +10,7 @@ Please don't ask for AAC or other input plugins. BlackMagic have disabled the op
 ## Features
 
 - ✅ **High-quality AAC encoding** using Fraunhofer FDK-AAC
-- ✅ **MP4, MOV, and MKV container support**
+- ✅ **MP4 and MOV container support**
 - ✅ **Selectable bitrate** (96/128/160/192/224/256/320 kbps, default 192)
 - ✅ **Multiple sample rates** (44.1 kHz, 48 kHz)
 - ✅ **16-bit PCM input**
@@ -114,7 +114,7 @@ killall resolve
 1. Open **DaVinci Resolve Studio**
 2. Go to the **Deliver** page
 3. Select your export settings:
-   - **Format:** MP4 (or MOV/MKV)
+   - **Format:** MP4 (or MOV)
    - **Codec (Video):** Your choice (H.264, H.265, etc.)
    - **Codec (Audio):** **AAC (FDK-AAC)** ← This is the plugin!
    - **Audio Bitrate:** 96-320 kbps (dropdown, default 192)
@@ -200,11 +200,13 @@ AAC Plugin :: Opened - 192 kbps CBR, 2.0 stereo, frame size: 1024, inputChannels
 
 If you don't see these messages, the plugin isn't loading.
 
-### Plays fine on Linux/VLC but no audio in QuickTime (macOS)
+### File plays fine streamed (e.g. Nextcloud, VLC) but not in some local players (e.g. QuickTime on macOS)
 
-Exported files play correctly in VLC and report correct stream properties
-with `ffprobe`, but have **no audio** when opened in QuickTime Player on
-macOS.
+Exported files play correctly in VLC and via web-based players (e.g. a
+Nextcloud share), and report correct stream properties with `ffprobe`,
+but fail to play (often silently, with picture but no audio) in certain
+local players -- QuickTime Player on macOS is the most commonly reported
+case so far.
 
 This is a known issue and appears to sit outside what the codec plugin can
 control. The actual AAC audio data is correct -- `ffprobe` reads the codec
@@ -212,11 +214,19 @@ configuration directly from the bitstream and confirms valid AAC-LC at the
 expected sample rate/channels, and VLC plays it back correctly in sync.
 The most likely explanation is that **Resolve's own internal MP4 muxer**
 (which assembles the final `moov`/`esds`/`stsd` boxes from what the plugin
-provides) writes container metadata that's complete enough for VLC's and
-ffprobe's more lenient parsing, but not strict enough for QuickTime's
-AVFoundation-based demuxer, which is historically pickier about MP4 box
-structure. This is not something the `IPluginCodecRef` plugin interface
-gives this codec direct control over.
+provides) writes container metadata that's complete enough for VLC's,
+ffprobe's, and most streaming/web players' more lenient parsing, but not
+strict enough for some stricter local demuxers (QuickTime's
+AVFoundation-based demuxer being the most commonly reported example), which
+are historically pickier about MP4 box structure. This is not something the
+`IPluginCodecRef` plugin interface gives this codec direct control over.
+
+If a client or colleague reports a file "won't play" -- but it played fine
+when you (or they) streamed/previewed it elsewhere (Nextcloud, Google
+Drive's preview, a browser, VLC) -- the file itself is very likely fine.
+The difference is almost always *which local player/app* they used to open
+the downloaded file, not a problem with the export. Ask what app they used
+to open it before assuming the export is broken.
 
 **Workaround:** remux (or remux+re-encode) the exported file with `ffmpeg`,
 which rewrites the container cleanly:
@@ -230,13 +240,52 @@ ffmpeg -i "input.mp4" -c copy -movflags +faststart "output.mp4"
 ```
 
 `-movflags +faststart` relocates and rewrites the `moov` atom via ffmpeg's
-own muxer, which appears to resolve the QuickTime compatibility issue.
+own muxer, which appears to resolve compatibility with stricter players.
 
 If you can compare `mp4box -info` (or `ffprobe -show_streams -show_format
 -print_format json`) output between a Resolve-exported file and an
 ffmpeg-remuxed one and spot the specific field that differs, please open
 an issue with the diff -- that would help pin down exactly what Resolve's
 muxer is doing differently.
+
+### Exported MKV file has no audio in some players
+
+As of v1.1.3, this codec actively rejects MKV exports and won't appear as
+a selectable audio codec option when MKV is the chosen container --
+Resolve's deliver page will hide/gray it out. If you're on an older
+version and exporting to `.mkv`, upgrade and switch to MP4 or MOV instead.
+
+*(Note for anyone tracking versions closely: v1.1.2 first attempted this
+by removing `mkv` from the codec's declared container list at
+registration, but that alone didn't actually stop Resolve from allowing
+the combination -- it still let the export proceed and produced a broken
+file. v1.1.3 added a hard runtime check in the plugin's init step that
+reads the actual target container for each export and refuses outright if
+it's MKV, which is what's actually effective.)*
+
+**Root cause (for anyone curious or maintaining a fork):** this was
+confirmed, not assumed. The plugin sends correct per-frame `pIOPropPTS`
+and `pIOPropDuration` values with an explicit `pIOPropTimeBase` of
+`1/sampleRate` -- the exact same logic, byte for byte, that produces
+correct timing metadata in MP4/MOV exports. Despite that, files exported
+to MKV consistently showed `Duration: 00:00:00.000000000` on the audio
+track (visible via `ffprobe -show_entries stream_tags=DURATION`), even
+though the audio data itself was valid AAC and the computed/observed
+duration (from packet count) was correct. A zero-duration track is
+commonly treated as empty/silent by players, explaining the no-audio
+symptom. The SDK doesn't expose any separate "total track duration" hint
+a codec plugin could supply to correct this -- Resolve's own Matroska
+muxer appears to not derive the `Duration` element correctly from the
+per-block timing it's given, in a way its MP4 muxer does correctly from
+the equivalent data. This isn't fixable on the encoding side; it would
+need a fix in Resolve's MKV muxer itself, so the plugin now blocks the
+combination instead.
+
+If you need an MKV deliverable, export to MP4 or MOV from Resolve and
+remux losslessly with `ffmpeg`:
+```bash
+ffmpeg -i "input.mp4" -c copy "output.mkv"
+```
 
 ## Uninstallation
 
@@ -274,7 +323,7 @@ MP4 Muxer (write to file)
 
 | Parameter | Values |
 |-----------|--------|
-| Containers | MP4, MOV, MKV |
+| Containers | MP4, MOV (MKV not supported -- see Known Limitations) |
 | Sample Rates | 44100 Hz, 48000 Hz |
 | Bit Depths | 16-bit PCM |
 | Channels | Stereo (2) only |
@@ -335,8 +384,9 @@ Contributions are welcome! Please:
 - **Studio only**: Free version of DaVinci Resolve does not support plugins
 - **Audio only**: This is an audio encoder plugin (video must use built-in codecs)
 - **Stereo only**: Currently supports 2.0 stereo only (no mono, no 5.1/7.1)
+- **MP4 and MOV only, no MKV**: Resolve's Matroska (MKV) muxer writes a zero-duration audio track regardless of what this plugin sends it (confirmed via correct, verified PTS/Duration/timebase values that work correctly for MP4/MOV), and many players treat a zero-duration track as silent. This is outside what the codec plugin interface can control. As of v1.1.3, this codec is no longer selectable at all when MKV is the chosen container (Resolve's deliver page will gray it out / hide it from the audio codec dropdown) -- export to MP4 or MOV instead. See [Troubleshooting](#exported-mkv-file-has-no-audio-in-some-players) for details.
 - **Linux only**: This plugin is for Linux; Windows/macOS would need separate implementations
-- **QuickTime playback**: Exported files may have no audio when opened directly in QuickTime Player on macOS, despite playing correctly in VLC/ffprobe -- this appears to be a Resolve MP4-muxer compatibility issue rather than a codec issue. See [Troubleshooting](#plays-fine-on-linuxvlc-but-no-audio-in-quicktime-macos) for a remux workaround.
+- **Strict local players**: Exported files may have no audio in some strict local players (QuickTime Player on macOS is the most commonly reported case), despite playing correctly in VLC/ffprobe and via streaming/web players. See [Troubleshooting](#file-plays-fine-streamed-eg-nextcloud-vlc-but-not-in-some-local-players-eg-quicktime-on-macos) for a remux workaround.
 
 ## FAQ
 
@@ -356,12 +406,21 @@ A: For most purposes:
 **Q: Can I use this for commercial projects?**  
 A: Yes. The plugin is GPL v3, and FDK-AAC is available for use. Check your local laws regarding AAC patents.
 
-**Q: Why is the audio stream showing as "AAC LTP" / "64.0 kHz" in MediaInfo instead of "AAC LC" / "48.0 kHz"?**  
-A: This is a known MediaInfo display quirk, not an encoding defect. The plugin always encodes AAC-LC at the sample rate you set (44.1/48 kHz). You can confirm the real stream properties independently with `ffprobe`:
-```
+**Q: Why is the audio stream showing as "AAC LTP" / "64.0 kHz" (or even the wrong channel count/layout, e.g. "4 channels" / "C L R Cb") in MediaInfo instead of "AAC LC" / "48.0 kHz" / "L R" stereo?**  
+A: This is a known MediaInfo display quirk, not an encoding defect, and it's been confirmed reproducible across multiple machines. The plugin always encodes correct AAC-LC stereo audio at the sample rate you set (44.1/48 kHz) -- MediaInfo's parsing of certain fields in the MP4 container metadata Resolve's muxer writes is unreliable, and it can misreport profile, sample rate, *and* channel count/layout, sometimes all at once on the same file.
+
+You can confirm the real stream properties independently. Two options, no terminal required if you'd rather not use the command line:
+
+- **VLC**: open the file, then Tools → Codec Information (or Window → Media Information → Codec Details on macOS). It reads the stream directly and will show the correct codec, channels, and sample rate.
+- **A right-click "Media Info" action using ffprobe** -- see the example Nemo action under [`examples/`](examples/) if you're on Linux Mint/Cinnamon.
+
+Or from a terminal:
+```bash
 ffprobe -v error -show_entries stream=codec_name,sample_rate,channels,channel_layout,bit_rate -of default=noprint_wrappers=1 yourfile.mp4
 ```
-which reads the codec configuration directly from the bitstream rather than relying on MediaInfo's heuristics, and will correctly report `codec_name=aac`, your real sample rate, and `channel_layout=stereo`.
+Both read the codec configuration directly from the bitstream rather than relying on MediaInfo's heuristics, and will correctly report the AAC codec, your real sample rate, and `stereo` channel layout.
+
+If a client reports a file "won't play" but it played fine through a streaming/web preview (Nextcloud, Google Drive, a browser), see [the playback troubleshooting entry above](#file-plays-fine-streamed-eg-nextcloud-vlc-but-not-in-some-local-players-eg-quicktime-on-macos) -- that's very likely a local-player compatibility issue, not a broken export.
 
 ## Acknowledgments
 
@@ -382,6 +441,16 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### Version 1.1.3 (2026-06-22)
+- Fixed: MKV was still selectable and still produced broken output after the 1.1.2 fix (registering it as unsupported wasn't enough to stop Resolve from allowing it). Added a runtime guard that actively blocks MKV export for this codec. Confirmed on real hardware: MKV no longer selectable, MP4/MOV unaffected.
+
+### Version 1.1.2 (2026-06-22)
+- Removed MKV from supported containers -- Resolve's Matroska muxer writes a zero-duration audio track regardless of correct plugin output, causing silent audio in some players. Use MP4 or MOV instead.
+- Documentation: broadened guidance on strict-player playback issues, added `examples/ffprobe-info.nemo_action`
+
+### Version 1.1.1 (2026-06-21)
+- Fixed build failure (`cannot find -lc++`) by removing an unnecessary `-stdlib=libc++` link flag
 
 ### Version 1.1.0 (2026-06-20)
 - Fixed channel negotiation bug that could produce 4-channel (LCRS) output instead of stereo

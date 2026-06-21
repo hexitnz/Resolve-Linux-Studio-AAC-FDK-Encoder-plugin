@@ -13,6 +13,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable encoder quality modes
 - Real-time encoding progress indicator
 
+### Added
+- `examples/ffprobe-info.nemo_action`: a right-click "Media Info" action
+  for Nemo (Linux Mint/Cinnamon) using `ffprobe`, useful for verifying
+  exported file properties without a terminal -- particularly handy given
+  MediaInfo's known misreporting issue with this plugin's output (see FAQ).
+
+### Documentation
+- Broadened the QuickTime troubleshooting entry to cover strict local
+  players generally, not just QuickTime -- confirmed via a real-world
+  report where a "won't play locally" file played fine via Nextcloud/VLC
+  and verified correct via ffprobe and VLC's codec info panel.
+- FAQ entry on MediaInfo misreporting now also covers the channel
+  count/layout variant (e.g. reporting "4 channels" / "C L R Cb" instead
+  of stereo), confirmed reproducible across multiple machines, with
+  VLC's Codec Information panel added as a no-terminal verification option.
+
+### Fixed (follow-up to 1.1.2)
+- Removing `mkv` from `pIOPropContainerList` at registration (1.1.2) did
+  **not** actually stop Resolve's deliver page from allowing MKV + this
+  codec together -- confirmed by direct testing, the export proceeded and
+  produced a broken (zero-duration audio) file regardless. Added a hard
+  runtime guard in `DoInit` that reads `pIOPropContainerExt` and rejects
+  the export outright if the target container is MKV, logging a clear
+  reason instead of silently producing broken output. This needs
+  real-world testing to confirm `pIOPropContainerExt` is actually
+  populated at `DoInit` time for this host -- a warning is logged if not,
+  so this is visible if MKV exports are ever reported as still succeeding.
+
+## [1.1.2] - 2026-06-22
+
+### Fixed
+- **MKV exports had no audio in some players.** Confirmed via direct
+  comparison: the plugin's per-frame `pIOPropPTS`/`pIOPropDuration` values
+  and `pIOPropTimeBase` declaration are correct and identical to what
+  produces correct timing in MP4/MOV exports, but Resolve's Matroska muxer
+  consistently wrote `Duration: 00:00:00` on the audio track regardless,
+  which many players treat as an empty/silent track. The SDK exposes no
+  separate total-track-duration property a codec plugin could use to
+  correct this -- it's a Resolve-side MKV muxer issue, not something
+  fixable from the codec plugin interface. Removed `mkv` from the
+  advertised container list (`pIOPropContainerList`) so it's no longer
+  offered as an export option; MP4 and MOV are unaffected and remain fully
+  supported. (Reported via GitHub issue feedback.)
+
+### Documentation
+- Generalized the QuickTime/strict-player troubleshooting entry further
+  and added a dedicated entry explaining the MKV duration issue and the
+  `ffmpeg -c copy` remux workaround for anyone who needs an MKV
+  deliverable.
+
 ## [1.1.1] - 2026-06-21
 
 ### Fixed
