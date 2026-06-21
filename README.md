@@ -200,6 +200,44 @@ AAC Plugin :: Opened - 192 kbps CBR, 2.0 stereo, frame size: 1024, inputChannels
 
 If you don't see these messages, the plugin isn't loading.
 
+### Plays fine on Linux/VLC but no audio in QuickTime (macOS)
+
+Exported files play correctly in VLC and report correct stream properties
+with `ffprobe`, but have **no audio** when opened in QuickTime Player on
+macOS.
+
+This is a known issue and appears to sit outside what the codec plugin can
+control. The actual AAC audio data is correct -- `ffprobe` reads the codec
+configuration directly from the bitstream and confirms valid AAC-LC at the
+expected sample rate/channels, and VLC plays it back correctly in sync.
+The most likely explanation is that **Resolve's own internal MP4 muxer**
+(which assembles the final `moov`/`esds`/`stsd` boxes from what the plugin
+provides) writes container metadata that's complete enough for VLC's and
+ffprobe's more lenient parsing, but not strict enough for QuickTime's
+AVFoundation-based demuxer, which is historically pickier about MP4 box
+structure. This is not something the `IPluginCodecRef` plugin interface
+gives this codec direct control over.
+
+**Workaround:** remux (or remux+re-encode) the exported file with `ffmpeg`,
+which rewrites the container cleanly:
+
+```bash
+# Re-encode audio and rewrite the container (known to work):
+ffmpeg -i "input.mp4" -c:v copy -c:a aac -b:a 320k -movflags +faststart "output.mp4"
+
+# Or, lossless remux only (no audio re-encode, try this first):
+ffmpeg -i "input.mp4" -c copy -movflags +faststart "output.mp4"
+```
+
+`-movflags +faststart` relocates and rewrites the `moov` atom via ffmpeg's
+own muxer, which appears to resolve the QuickTime compatibility issue.
+
+If you can compare `mp4box -info` (or `ffprobe -show_streams -show_format
+-print_format json`) output between a Resolve-exported file and an
+ffmpeg-remuxed one and spot the specific field that differs, please open
+an issue with the diff -- that would help pin down exactly what Resolve's
+muxer is doing differently.
+
 ## Uninstallation
 
 ```bash
@@ -298,6 +336,7 @@ Contributions are welcome! Please:
 - **Audio only**: This is an audio encoder plugin (video must use built-in codecs)
 - **Stereo only**: Currently supports 2.0 stereo only (no mono, no 5.1/7.1)
 - **Linux only**: This plugin is for Linux; Windows/macOS would need separate implementations
+- **QuickTime playback**: Exported files may have no audio when opened directly in QuickTime Player on macOS, despite playing correctly in VLC/ffprobe -- this appears to be a Resolve MP4-muxer compatibility issue rather than a codec issue. See [Troubleshooting](#plays-fine-on-linuxvlc-but-no-audio-in-quicktime-macos) for a remux workaround.
 
 ## FAQ
 
