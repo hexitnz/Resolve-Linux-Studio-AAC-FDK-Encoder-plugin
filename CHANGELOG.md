@@ -13,6 +13,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable encoder quality modes
 - Real-time encoding progress indicator
 
+## [1.1.0] - 2026-06-20
+
+### Fixed
+- **Critical**: Codec previously did not declare a supported channel count
+  (`pIOPropNumChannels`) or channel layout (`pIOPropAudioChannelLayout`) to
+  Resolve, which could cause Resolve to negotiate a 4-channel (LCRS) bus
+  even for stereo timelines. Both are now explicitly declared as stereo-only.
+- **Critical**: Exported MP4 track timing metadata was incorrect (MediaInfo
+  reported 64 kHz / "AAC LTP" instead of the actual encoded rate) because
+  `pIOPropTimeBase` was never declared alongside `pIOPropPTS`/`pIOPropDuration`.
+  Time base is now explicitly set to `1/sampleRate` so PTS/duration values
+  (counted in samples) are interpreted correctly. Note: some tools (MediaInfo)
+  may still mis-summarize the profile/rate due to a separate, known MediaInfo
+  parsing quirk -- verify with `ffprobe` instead, see README FAQ.
+- **Critical**: `TT_MP4_RAW` transport means FDK-AAC emits bitstream frames
+  with no in-band ADTS/LATM header. The plugin was never forwarding the
+  `AudioSpecificConfig` FDK-AAC computes (`aacEncInfo().confBuf`) to Resolve's
+  muxer via `pIOPropMagicCookie`/`pIOPropMagicCookieType`, leaving the muxer
+  to infer its own (sometimes incorrect) stream description for the `esds` box.
+- User-selected bitrate (via the settings combobox) was applied correctly to
+  the FDK-AAC encoder itself, but `pIOPropBitRate` was only ever set once on
+  the open-time buffer, never on the actual per-sample output buffers --
+  Resolve's muxer wrote a stale/default bitrate into the container regardless
+  of the user's selection. Now set on every output buffer.
+- Removed `pIOPropBitDepth` from compressed AAC output buffers. Bit depth is
+  a PCM concept and is meaningless on compressed packets; publishing it
+  could confuse host-side stream description logic (see
+  github.com/Toxblh/davinci-linux-aac-codec/issues/13 for a related report
+  in a sibling project).
+- `DoInit` now validates channel count, bit depth, and sample rate explicitly
+  and fails loudly with a logged reason instead of silently encoding
+  whatever Resolve happens to send.
+- `install.sh` previously embedded its own copy of the plugin source code
+  inline, completely independent of `src/`, so installs could silently ship
+  outdated/broken behavior even after `src/` was fixed. It now builds
+  directly from `src/`, which is the single source of truth.
+
+### Changed
+- Bitrate is now a proper dropdown/combobox (96/128/160/192/224/256/320 kbps,
+  default 192) instead of a slider, with validation and snap-to-nearest
+  handling on load.
+- Plugin is now locked to 16-bit PCM input and 2.0 stereo only (mono and
+  24-bit input are no longer accepted). This removes ambiguous negotiation
+  paths that contributed to the channel/layout bug above. Multi-channel
+  support is tracked separately under Planned.
+- `Makefile` gained an `install` target that builds, packages the
+  `.dvcp.bundle`, and installs it to `/opt/resolve/IOPlugins` in one step.
+
 ## [1.0.0] - 2025-10-26
 
 ### Added

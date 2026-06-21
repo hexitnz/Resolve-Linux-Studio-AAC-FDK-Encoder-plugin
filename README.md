@@ -11,9 +11,9 @@ Please don't ask for AAC or other input plugins. BlackMagic have disabled the op
 
 - ✅ **High-quality AAC encoding** using Fraunhofer FDK-AAC
 - ✅ **MP4, MOV, and MKV container support**
-- ✅ **Configurable bitrate** (128-320 kbps)
+- ✅ **Selectable bitrate** (96/128/160/192/224/256/320 kbps, default 192)
 - ✅ **Multiple sample rates** (44.1 kHz, 48 kHz)
-- ✅ **16-bit and 24-bit audio** support
+- ✅ **16-bit PCM input**
 - ✅ **Native DaVinci Resolve integration**
 
 ## Screenshots
@@ -117,7 +117,7 @@ killall resolve
    - **Format:** MP4 (or MOV/MKV)
    - **Codec (Video):** Your choice (H.264, H.265, etc.)
    - **Codec (Audio):** **AAC (FDK-AAC)** ← This is the plugin!
-   - **Audio Bitrate:** 128-320 kbps (use slider)
+   - **Audio Bitrate:** 96-320 kbps (dropdown, default 192)
 4. Add to render queue and export
 
 ## Troubleshooting
@@ -163,8 +163,9 @@ pkg-config --modversion fdk-aac
 This usually indicates a mismatch between input format and plugin expectations.
 
 **Try these settings in Resolve:**
-- Set timeline audio format to 48 kHz
-- Use 16-bit or 24-bit audio (avoid float)
+- Set your Project Settings → Fairlight audio output to Stereo (this plugin only supports 2.0 stereo output)
+- Set timeline audio format to 48 kHz (44.1 kHz is also supported)
+- Use 16-bit audio (24-bit/float PCM input is converted internally, but the plugin currently only accepts a 16-bit pIOPropBitDepth negotiation)
 - Restart the export
 
 **Check logs:**
@@ -191,8 +192,10 @@ sudo chmod -R 755 /opt/resolve/IOPlugins/aac_fdk_plugin.dvcp.bundle
 You should see messages like:
 ```
 AAC Encoder :: Constructor
-AAC Plugin :: Init - 48000 Hz, 2 ch, 24-bit
-AAC Plugin :: Opened - 192 kbps, frame size: 1024
+AAC Plugin :: Init - 48000 Hz, 2 ch, 16-bit, 192 kbps
+AAC Plugin :: Time base declared as 1/48000 (sample-accurate PTS/Duration)
+AAC Plugin :: AudioSpecificConfig forwarded to muxer (2 bytes)
+AAC Plugin :: Opened - 192 kbps CBR, 2.0 stereo, frame size: 1024, inputChannels confirmed: 2
 ```
 
 If you don't see these messages, the plugin isn't loading.
@@ -213,12 +216,12 @@ The plugin uses:
 - **FDK-AAC**: Fraunhofer's high-quality AAC encoder
 - **DaVinci Resolve CodecPlugin API**: Official plugin interface
 - **Ring buffer**: Accumulates samples to match encoder frame size (1024 samples)
-- **Format conversion**: Converts 16/24-bit PCM to float planar, then to int16 for FDK-AAC
+- **Format conversion**: Converts 16-bit PCM to float planar, then to int16 for FDK-AAC
 
 ### Audio Pipeline
 
 ```
-Resolve (24-bit PCM)
+Resolve (16-bit PCM, stereo)
     ↓
 Plugin (convert to float planar)
     ↓
@@ -235,9 +238,9 @@ MP4 Muxer (write to file)
 |-----------|--------|
 | Containers | MP4, MOV, MKV |
 | Sample Rates | 44100 Hz, 48000 Hz |
-| Bit Depths | 16-bit, 24-bit PCM |
-| Channels | Mono (1), Stereo (2) |
-| Bitrates | 128-320 kbps |
+| Bit Depths | 16-bit PCM |
+| Channels | Stereo (2) only |
+| Bitrates | 96-320 kbps |
 | Profile | AAC-LC (Low Complexity) |
 
 ## Development
@@ -293,7 +296,7 @@ Contributions are welcome! Please:
 
 - **Studio only**: Free version of DaVinci Resolve does not support plugins
 - **Audio only**: This is an audio encoder plugin (video must use built-in codecs)
-- **Stereo only**: Currently supports mono and stereo only (no 5.1/7.1)
+- **Stereo only**: Currently supports 2.0 stereo only (no mono, no 5.1/7.1)
 - **Linux only**: This plugin is for Linux; Windows/macOS would need separate implementations
 
 ## FAQ
@@ -314,8 +317,12 @@ A: For most purposes:
 **Q: Can I use this for commercial projects?**  
 A: Yes. The plugin is GPL v3, and FDK-AAC is available for use. Check your local laws regarding AAC patents.
 
-**Q: Why is the audio stream showing as "AAC LTP" instead of "AAC LC"?**  
-A: This is a detection quirk in some media info tools. The plugin uses AAC-LC profile correctly.
+**Q: Why is the audio stream showing as "AAC LTP" / "64.0 kHz" in MediaInfo instead of "AAC LC" / "48.0 kHz"?**  
+A: This is a known MediaInfo display quirk, not an encoding defect. The plugin always encodes AAC-LC at the sample rate you set (44.1/48 kHz). You can confirm the real stream properties independently with `ffprobe`:
+```
+ffprobe -v error -show_entries stream=codec_name,sample_rate,channels,channel_layout,bit_rate -of default=noprint_wrappers=1 yourfile.mp4
+```
+which reads the codec configuration directly from the bitstream rather than relying on MediaInfo's heuristics, and will correctly report `codec_name=aac`, your real sample rate, and `channel_layout=stereo`.
 
 ## Acknowledgments
 
@@ -335,11 +342,21 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Changelog
 
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### Version 1.1.0 (2026-06-20)
+- Fixed channel negotiation bug that could produce 4-channel (LCRS) output instead of stereo
+- Fixed MP4 track timing/`esds` metadata (correct time base + AudioSpecificConfig forwarding)
+- Fixed selected bitrate not reliably reaching the exported file
+- Bitrate is now a combobox (96-320 kbps, default 192)
+- Locked to 16-bit PCM input, 2.0 stereo only
+- `install.sh` now builds from `src/` instead of an embedded copy
+
 ### Version 1.0.0 (2025-10-27)
 - Initial release
 - AAC-LC encoding with FDK-AAC
 - Support for MP4, MOV, MKV containers
-- Configurable bitrate (128-320 kbps)
+- Configurable bitrate (96-320 kbps)
 - 16-bit and 24-bit audio support
 
 ---
