@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable encoder quality modes
 - Real-time encoding progress indicator
 
+## [1.1.1] - 2026-06-21
+
+### Fixed
+- Build failed with `/usr/bin/ld: cannot find -lc++: No such file or directory`
+  on fresh installs where `libc++` (LLVM's C++ standard library) wasn't
+  separately installed alongside `clang`. The Makefile was passing
+  `-stdlib=libc++` at link time, but the code has no dependency on
+  libc++-specific behavior -- it's standard C++11 throughout. Removed the
+  flag so the build uses the default `libstdc++` already present on every
+  supported distro, removing an undocumented dependency entirely rather
+  than adding it to the install instructions. (#1)
+
 ## [1.1.0] - 2026-06-20
 
 ### Fixed

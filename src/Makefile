@@ -2,7 +2,7 @@ CC = clang++
 CFLAGS = -std=c++11 -fPIC -O2 -Wall -I. -Iinclude
 CFLAGS += $(shell pkg-config --cflags fdk-aac)
 
-LDFLAGS = -shared -Wl,-rpath,'$$ORIGIN' -lpthread -stdlib=libc++
+LDFLAGS = -shared -Wl,-rpath,'$$ORIGIN' -lpthread
 LDFLAGS += $(shell pkg-config --libs fdk-aac)
 
 TARGET = bin/aac_fdk_plugin.dvcp
