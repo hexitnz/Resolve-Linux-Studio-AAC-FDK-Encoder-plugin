@@ -1,11 +1,12 @@
-> ### ⚠️ IMPORTANT: DaVinci Resolve 21.2 Update
-> The original upstream plugin (`GloriousEggroll/dvcp-aac`) is currently inactive on Resolve 21.2 due to binary signature changes. 
+> ### ⚠️ DEPRECATED: Please use the newer dvcp-aac project instead
 > 
-> **The working fix is here:** Use the `resolve-21.1.1` branch from AquaroTorres. I have personally tested this on **Resolve Studio 21.2.0.0006 on Linux x86-64**, and it works perfectly for AAC import/playback.
+> **Note:** I no longer recommend using the plugin in this repository for DaVinci Resolve. 
 > 
-> 👉 **[Download the working source here](https://github.com/AquaroTorres/dvcp-aac/tree/resolve-21.1.1)** 👈
+> For modern versions of DaVinci Resolve (including 21.2 on Linux), I now highly recommend using the **dvcp-aac** project instead. It provides a much better, actively maintained AAC audio encoder and decoder bridge.  This is the final step in fixing the aac codec issue in Resolve Linux Studio.  Note that this pair of plugins is version specific so is tested as working on 21.1.1 and 21.2.6 but may need updating for newere versions when they are released.  I will do my best to keep this repository information updated but don't hold me to it :) 
 > 
-> *Note: I have also included my build notes (`README-dvcp-aac-21.2.md`) and the pre-compiled binaries in the Releases section of this repository.*
+> 👉 **[Click here to use the recommended dvcp-aac project](https://github.com/AquaroTorres/dvcp-aac/tree/resolve-21.1.1)** 👈
+> 
+> *(Specifically, use the `resolve-21.1.1` branch linked above, which I have personally tested and verified to work perfectly on Resolve Studio 21.2.0.0006).*
 
 
 
