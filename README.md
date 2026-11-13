@@ -1,3 +1,15 @@
+> ### ⚠️ IMPORTANT: DaVinci Resolve 21.2 Update
+> The original upstream plugin (`GloriousEggroll/dvcp-aac`) is currently inactive on Resolve 21.2 due to binary signature changes. 
+> 
+> **The working fix is here:** Use the `resolve-21.1.1` branch from AquaroTorres. I have personally tested this on **Resolve Studio 21.2.0.0006 on Linux x86-64**, and it works perfectly for AAC import/playback.
+> 
+> 👉 **[Download the working source here](https://github.com/AquaroTorres/dvcp-aac/tree/resolve-21.1.1)** 👈
+> 
+> *Note: I have also included my build notes (`README-dvcp-aac-21.2.md`) and the pre-compiled binaries in the Releases section of this repository.*
+
+
+
+
 # AAC Audio Encoder Plugin for DaVinci Resolve Studio (Linux)
 
 A high-quality AAC audio encoder plugin for DaVinci Resolve Studio on Linux, using the Fraunhofer FDK-AAC library.
